@@ -1,31 +1,29 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import API_URL from '../config';
 
 function Login({ setUser }) {
   const [email, setEmail] = useState('test@menopauza.pl');
   const [password, setPassword] = useState('test123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
-      console.log('Logging in with:', email, password);
-      const response = await axios.post('/api/auth/login', { email, password });
+      console.log('Calling API:', `${API_URL}/api/auth/login`);
+      const response = await axios.post(`${API_URL}/api/auth/login`, { email, password });
       console.log('Login response:', response.data);
-      
+
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       setUser(response.data.user);
-      navigate('/');
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('❌ Błąd logowania: ' + (error.response?.data?.error || error.message));
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('❌ Błąd logowania: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }
@@ -36,19 +34,19 @@ function Login({ setUser }) {
       <div className="card" style={{ maxWidth: '400px', margin: '100px auto' }}>
         <h1 style={{ textAlign: 'center' }}>🔐 Menopauza App</h1>
         <h2 style={{ textAlign: 'center', fontSize: '18px' }}>Logowanie</h2>
-        
+
         {error && (
-          <div style={{ 
-            backgroundColor: '#ffe0e0', 
-            border: '1px solid red', 
-            padding: '10px', 
+          <div style={{
+            backgroundColor: '#ffe0e0',
+            border: '1px solid red',
+            padding: '10px',
             borderRadius: '5px',
             marginBottom: '15px'
           }}>
             {error}
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit}>
           <input
             type="email"

@@ -5,7 +5,7 @@ import Register from './pages/Register';
 import './index.css';
 
 function App() {
-  const [, setUser] = useState(() => {
+  const [user, setUser] = useState(() => {
     const stored = localStorage.getItem('token');
     return stored ? { token: stored } : null;
   });
@@ -15,7 +15,20 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login setUser={setUser} />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/"
+          element={
+            user ? (
+              <div className="container">
+                <div className="card" style={{ maxWidth: '400px', margin: '50px auto' }}>
+                  <h1>✅ Zalogowano</h1>
+                </div>
+              </div>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

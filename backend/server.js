@@ -283,11 +283,12 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 server.listen(PORT, HOST, () => {
+  const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
   console.log(`
   ╔════════════════════════════════════════╗
   ║  🌸 MENOPAUZA APP - BACKEND           ║
   ║  🚀 Server running on port ${PORT}      ║
-  ║  📍 http://${HOST}:${PORT}              ║
+  ║  📍 http://${displayHost}:${PORT}              ║
   ║  ✅ Mock Database (No PostgreSQL)      ║
   ║  💬 WebSocket ready                    ║
   ╚════════════════════════════════════════╝

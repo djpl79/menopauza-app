@@ -39,10 +39,15 @@ export const getApiUrl = () => {
     hostname.includes('.repl.co') ||
     hostname.includes('.repl.run');
 
-  if (isReplit && hostname.includes(FRONTEND_PORT)) {
+  if (isReplit) {
     // Replit exposes each port on a distinct hostname, e.g.
     // "<slug>-3000.<user>.repl.co" -> "<slug>-5000.<user>.repl.co"
-    return `${protocol}//${hostname.split(FRONTEND_PORT).join(BACKEND_PORT)}`;
+    // Only replace the port segment (preceded by "-" and followed by "."),
+    // so the port number isn't accidentally replaced elsewhere in the slug.
+    const portSegment = new RegExp(`-${FRONTEND_PORT}(?=\\.)`);
+    if (portSegment.test(hostname)) {
+      return `${protocol}//${hostname.replace(portSegment, `-${BACKEND_PORT}`)}`;
+    }
   }
 
   // Fallback: same host, backend port (works when the platform proxies

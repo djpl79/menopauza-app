@@ -20,7 +20,7 @@ function Register() {
     setError('');
     
     try {
-      const response = await axios.post(`${window.API_URL}/api/auth/register`, formData);
+      const response = await axios.post('/api/auth/register', formData);
       localStorage.setItem('token', response.data.token);
       navigate('/');
     } catch (error) {

@@ -20,10 +20,14 @@ function Register() {
     setError('');
     
     try {
-      const response = await axios.post(`${window.API_URL}/api/auth/register`, formData);
+      console.log('Registering user:', formData.email);
+      const response = await axios.post('/api/auth/register', formData);
+      console.log('Register response:', response.data);
       localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
       navigate('/');
     } catch (error) {
+      console.error('Register error:', error);
       setError(error.response?.data?.error || 'Błąd rejestracji');
     } finally {
       setLoading(false);

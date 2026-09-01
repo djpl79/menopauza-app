@@ -22,7 +22,9 @@ const resolveApiUrl = () => {
 
 export const API_URL = resolveApiUrl();
 
-// eslint-disable-next-line no-console
-console.log('[config] Backend API_URL resolved to:', API_URL);
+if (process.env.NODE_ENV !== 'production') {
+  // eslint-disable-next-line no-console
+  console.log('[config] Backend API_URL resolved to:', API_URL);
+}
 
 export default API_URL;

@@ -8,27 +8,36 @@ import Register from './pages/Register';
 // Every axios request/response goes through the Backend at API_URL.
 axios.defaults.baseURL = API_URL;
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 // Log every outgoing/incoming axios call to make connection issues easy to
-// diagnose in the browser console (Network tab + Console tab).
+// diagnose in the browser console (Network tab + Console tab). Disabled in
+// production builds to avoid leaking request/response payloads.
 axios.interceptors.request.use((config) => {
-  // eslint-disable-next-line no-console
-  console.log(`[axios] -> ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config.data || '');
+  if (isDev) {
+    // eslint-disable-next-line no-console
+    console.log(`[axios] -> ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config.data || '');
+  }
   return config;
 });
 
 axios.interceptors.response.use(
   (response) => {
-    // eslint-disable-next-line no-console
-    console.log(`[axios] <- ${response.status} ${response.config.url}`, response.data);
+    if (isDev) {
+      // eslint-disable-next-line no-console
+      console.log(`[axios] <- ${response.status} ${response.config.url}`, response.data);
+    }
     return response;
   },
   (error) => {
-    // eslint-disable-next-line no-console
-    console.error(
-      `[axios] <- ERROR ${error.config?.url || ''}:`,
-      error.response?.status,
-      error.response?.data || error.message
-    );
+    if (isDev) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[axios] <- ERROR ${error.config?.url || ''}:`,
+        error.response?.status,
+        error.response?.data || error.message
+      );
+    }
     return Promise.reject(error);
   }
 );
@@ -63,7 +72,9 @@ function App() {
   }, []);
 
   useEffect(() => {
-    console.log('[App] Checking backend health at', `${API_URL}/api/health`);
+    if (isDev) {
+      console.log('[App] Checking backend health at', `${API_URL}/api/health`);
+    }
     axios
       .get('/api/health')
       .then(() => setBackendStatus('online'))
@@ -95,7 +106,10 @@ function App() {
           path="/login"
           element={user ? <Navigate to="/" /> : <Login setUser={setUser} />}
         />
-        <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
+        <Route
+          path="/register"
+          element={user ? <Navigate to="/" /> : <Register setUser={setUser} />}
+        />
         <Route
           path="/"
           element={

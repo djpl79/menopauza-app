@@ -40,13 +40,23 @@ export const getApiUrl = () => {
     hostname.includes('.repl.run');
 
   if (isReplit) {
-    // Replit exposes each port on a distinct hostname, e.g.
-    // "<slug>-3000.<user>.repl.co" -> "<slug>-5000.<user>.repl.co"
-    // Only replace the port segment (preceded by "-" and followed by "."),
-    // so the port number isn't accidentally replaced elsewhere in the slug.
-    const portSegment = new RegExp(`-${FRONTEND_PORT}(?=\\.)`);
-    if (portSegment.test(hostname)) {
-      return `${protocol}//${hostname.replace(portSegment, `-${BACKEND_PORT}`)}`;
+    // Replit exposes each port on a distinct hostname, but the exact
+    // format has changed over time:
+    //  - Legacy (repl.co): "<slug>-3000.<user>.repl.co"
+    //    -> port is a *suffix* of a label, preceded by "-" and followed by ".".
+    //  - Current (replit.dev): "<uuid>.3000-<user>.<project>.replit.dev"
+    //    -> port is a *prefix* of a label, followed by "-".
+    // Try both patterns, only swapping the port number itself so nothing
+    // else in the hostname is accidentally replaced.
+    const suffixPattern = new RegExp(`-${FRONTEND_PORT}(?=\\.)`);
+    const prefixPattern = new RegExp(`(^|\\.)${FRONTEND_PORT}-`);
+
+    if (suffixPattern.test(hostname)) {
+      return `${protocol}//${hostname.replace(suffixPattern, `-${BACKEND_PORT}`)}`;
+    }
+
+    if (prefixPattern.test(hostname)) {
+      return `${protocol}//${hostname.replace(prefixPattern, `$1${BACKEND_PORT}-`)}`;
     }
   }
 

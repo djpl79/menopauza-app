@@ -1,0 +1,10 @@
+run = "(cd backend && npm install && npm start) & (cd frontend && npm install && npm start)"
+entrypoint = "backend/server.js"
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 3000
+externalPort = 3000

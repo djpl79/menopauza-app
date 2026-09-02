@@ -5,6 +5,7 @@ const http = require('http');
 const socketIO = require('socket.io');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 
 dotenv.config();
 
@@ -25,6 +26,24 @@ const io = socketIO(server, {
 
 app.use(cors());
 app.use(express.json());
+
+// Basic protection against brute-force/abuse on the API. Applied to every
+// request; a stricter limiter is layered on top of the auth routes below.
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/', apiLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zbyt wiele prób logowania/rejestracji. Spróbuj ponownie później.' }
+});
 
 // ============================================
 // AUTH HELPERS
@@ -102,7 +121,7 @@ let messageId = 1;
 // ============================================
 // AUTH ROUTES
 // ============================================
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const { username, email, password, firstName, lastName } = req.body;
 
@@ -140,7 +159,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = mockUsers.find(u => u.email.toLowerCase() === String(email).toLowerCase());

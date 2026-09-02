@@ -1,3 +1,8 @@
 node_modules/
 frontend/build/
 
+# Local environment overrides - copy from .env.example instead of committing.
+.env
+.env.local
+!.env.example
+

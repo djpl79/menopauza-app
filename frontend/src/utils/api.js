@@ -72,4 +72,15 @@ const api = axios.create({
   }
 });
 
+// Attach the stored auth token (if any) to every outgoing request so
+// protected backend routes (symptoms, forum, messages, notifications)
+// can authenticate the caller.
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = 'Bearer ' + token;
+  }
+  return config;
+});
+
 export default api;

@@ -3,8 +3,16 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
 const socketIO = require('socket.io');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 dotenv.config();
+
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️  JWT_SECRET not set in environment - using an insecure development default. Set JWT_SECRET before deploying.');
+}
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-insecure-secret-do-not-use-in-production';
+const JWT_EXPIRES_IN = '7d';
 
 const app = express();
 const server = http.createServer(app);
@@ -19,11 +27,55 @@ app.use(cors());
 app.use(express.json());
 
 // ============================================
+// AUTH HELPERS
+// ============================================
+function signToken(user) {
+  return jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+}
+
+// Verifies the `Authorization: ****** header and attaches `req.userId`.
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const [scheme, token] = authHeader.split(' ');
+
+  if (scheme !== 'Bearer' || !token) {
+    return res.status(401).json({ error: 'Brak autoryzacji - zaloguj się ponownie' });
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.userId = payload.userId;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Nieprawidłowy lub wygasły token' });
+  }
+}
+
+// Ensures the authenticated user can only access their own resources.
+function requireSelf(paramName) {
+  return (req, res, next) => {
+    if (String(req.userId) !== String(req.params[paramName])) {
+      return res.status(403).json({ error: 'Brak dostępu do tego zasobu' });
+    }
+    next();
+  };
+}
+
+// ============================================
 // MOCK DATABASE - Zamiast PostgreSQL
 // ============================================
 const mockUsers = [
-  { id: 1, username: 'test', email: 'test@menopauza.pl', password: 'test123', firstName: 'Test', lastName: 'User' }
+  {
+    id: 1,
+    username: 'test',
+    email: 'test@menopauza.pl',
+    // Plaintext seed password 'test123', hashed at startup below.
+    password: bcrypt.hashSync('test123', 10),
+    firstName: 'Test',
+    lastName: 'User'
+  }
 ];
+let nextUserId = 2;
 
 const mockSymptoms = [
   { id: 1, userId: 1, symptom: 'Gorące uderzenia', severity: 8, date: new Date('2026-08-20') },
@@ -50,41 +102,56 @@ let messageId = 1;
 // ============================================
 // AUTH ROUTES
 // ============================================
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, email, password, firstName, lastName } = req.body;
-    
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email i hasło są wymagane' });
+    }
+
+    const normalizedEmail = String(email).toLowerCase();
+    const existingUser = mockUsers.find(
+      u => u.email.toLowerCase() === normalizedEmail || u.username.toLowerCase() === String(username).toLowerCase()
+    );
+    if (existingUser) {
+      return res.status(409).json({ error: 'Użytkownik z tym adresem email lub nazwą użytkownika już istnieje' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = {
-      id: mockUsers.length + 1,
+      id: nextUserId++,
       username,
       email,
-      password,
+      password: hashedPassword,
       firstName,
       lastName
     };
-    
+
     mockUsers.push(newUser);
-    res.json({ 
-      token: 'mock_token_' + newUser.id, 
+    const { password: _password, ...safeUser } = newUser;
+    res.json({
+      token: signToken(newUser),
       message: '✅ Użytkownik zarejestrowany',
-      user: newUser
+      user: safeUser
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = mockUsers.find(u => u.email === email && u.password === password);
-    
-    if (!user) {
+    const user = mockUsers.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+    const passwordMatches = user ? await bcrypt.compare(password, user.password) : false;
+
+    if (!user || !passwordMatches) {
       return res.status(400).json({ error: 'Email lub hasło nieprawidłowe' });
     }
-    
-    res.json({ 
-      token: 'mock_token_' + user.id,
+
+    res.json({
+      token: signToken(user),
       user: { id: user.id, username: user.username, email: user.email, firstName: user.firstName }
     });
   } catch (error) {
@@ -95,12 +162,12 @@ app.post('/api/auth/login', (req, res) => {
 // ============================================
 // SYMPTOMS ROUTES
 // ============================================
-app.post('/api/symptoms', (req, res) => {
+app.post('/api/symptoms', authenticate, (req, res) => {
   try {
-    const { userId, symptom, severity, date } = req.body;
+    const { symptom, severity, date } = req.body;
     const newSymptom = {
       id: mockSymptoms.length + 1,
-      userId,
+      userId: req.userId,
       symptom,
       severity: parseInt(severity),
       date: new Date(date)
@@ -112,7 +179,7 @@ app.post('/api/symptoms', (req, res) => {
   }
 });
 
-app.get('/api/symptoms/:userId', (req, res) => {
+app.get('/api/symptoms/:userId', authenticate, requireSelf('userId'), (req, res) => {
   try {
     const symptoms = mockSymptoms.filter(s => s.userId === parseInt(req.params.userId));
     res.json(symptoms.sort((a, b) => new Date(b.date) - new Date(a.date)));
@@ -124,7 +191,7 @@ app.get('/api/symptoms/:userId', (req, res) => {
 // ============================================
 // CHARTS ROUTES
 // ============================================
-app.get('/api/charts/:userId', (req, res) => {
+app.get('/api/charts/:userId', authenticate, requireSelf('userId'), (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
     const userSymptoms = mockSymptoms.filter(s => s.userId === userId);
@@ -168,12 +235,12 @@ app.get('/api/articles/:id', (req, res) => {
 // ============================================
 // FORUM ROUTES
 // ============================================
-app.post('/api/forum', (req, res) => {
+app.post('/api/forum', authenticate, (req, res) => {
   try {
-    const { userId, title, content } = req.body;
+    const { title, content } = req.body;
     const newPost = {
       id: mockForumPosts.length + 1,
-      userId,
+      userId: req.userId,
       title,
       content,
       views: 0,
@@ -197,12 +264,12 @@ app.get('/api/forum', (req, res) => {
 // ============================================
 // MESSAGES ROUTES
 // ============================================
-app.post('/api/messages', (req, res) => {
+app.post('/api/messages', authenticate, (req, res) => {
   try {
-    const { senderId, receiverId, message } = req.body;
+    const { receiverId, message } = req.body;
     const newMessage = {
       id: messageId++,
-      senderId,
+      senderId: req.userId,
       receiverId,
       message,
       isRead: false,
@@ -215,7 +282,7 @@ app.post('/api/messages', (req, res) => {
   }
 });
 
-app.get('/api/messages/:userId/:otherUserId', (req, res) => {
+app.get('/api/messages/:userId/:otherUserId', authenticate, requireSelf('userId'), (req, res) => {
   try {
     const { userId, otherUserId } = req.params;
     const messages = mockMessages.filter(m => 
@@ -231,7 +298,7 @@ app.get('/api/messages/:userId/:otherUserId', (req, res) => {
 // ============================================
 // NOTIFICATIONS ROUTES
 // ============================================
-app.get('/api/notifications/:userId', (req, res) => {
+app.get('/api/notifications/:userId', authenticate, requireSelf('userId'), (req, res) => {
   try {
     res.json([
       { id: 1, userId: req.params.userId, message: '⏰ Czas dodać dzisiejszy wpis objawów', isRead: false },
@@ -242,7 +309,7 @@ app.get('/api/notifications/:userId', (req, res) => {
   }
 });
 
-app.put('/api/notifications/:notificationId/read', (req, res) => {
+app.put('/api/notifications/:notificationId/read', authenticate, (req, res) => {
   try {
     res.json({ id: req.params.notificationId, isRead: true });
   } catch (error) {
@@ -282,9 +349,17 @@ io.on('connection', (socket) => {
 // ============================================
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
-server.listen(PORT, HOST, () => {
-  const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
-  console.log(`
+
+// Only start listening when run directly (e.g. `node server.js`), so this
+// module can be `require`d by tests without binding a real port.
+if (require.main === module) {
+  startServer();
+}
+
+function startServer() {
+  server.listen(PORT, HOST, () => {
+    const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
+    console.log(`
   ╔════════════════════════════════════════╗
   ║  🌸 MENOPAUZA APP - BACKEND           ║
   ║  🚀 Server running on port ${PORT}      ║
@@ -293,6 +368,7 @@ server.listen(PORT, HOST, () => {
   ║  💬 WebSocket ready                    ║
   ╚════════════════════════════════════════╝
   `);
-});
+  });
+}
 
-module.exports = { io };
+module.exports = { io, app };

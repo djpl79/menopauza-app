@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import api from '../utils/api';
 import { useNavigate } from 'react-router-dom';
 
-function Register() {
+function Register({ setUser }) {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -22,6 +22,8 @@ function Register() {
     try {
       const response = await api.post('/api/auth/register', formData);
       localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      setUser(response.data.user);
       navigate('/');
     } catch (error) {
       setError(error.response?.data?.error || 'Błąd rejestracji');

@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "Menopauza Razem",
+    "slug": "menopauza-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon-store.png",
+    "scheme": "menopauzarazem",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F7F2E8",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "pl.menopauzarazem.mobile",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "package": "pl.menopauzarazem.mobile",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon-store.png",
+        "backgroundColor": "#1D4035"
+      },
+      "permissions": []
+    },
+    "web": {
+      "favicon": "./assets/images/icon-store.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F2E8",
+          "image": "./assets/images/icon-store.png",
+          "imageWidth": 180,
+          "dark": {
+            "backgroundColor": "#142D25",
+            "image": "./assets/images/icon-store.png"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

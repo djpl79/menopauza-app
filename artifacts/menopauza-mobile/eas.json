@@ -6,6 +6,12 @@
   "build": {
     "preview": {
       "distribution": "internal",
+      "image": "latest",
+      "node": "22.14.0",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "dziennik.menopauzarazem.pl"
+      },
       "android": {
         "buildType": "apk"
       }
